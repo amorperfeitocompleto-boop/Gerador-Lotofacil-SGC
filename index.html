@@ -536,6 +536,13 @@ const shuffle=a=>[...a].sort(()=>Math.random()-.5);
 const pad=n=>String(n).padStart(2,'0');
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 
+
+// 🔥 NOVO: USAR APENAS OS ÚLTIMOS 5 SORTEIOS PARA ANÁLISE
+function usarUltimosCinco(jogos){
+  if(jogos.length <= 5) return jogos;
+  return jogos.slice(0,5); // já está em ordem recente -> mantém os 5 mais recentes
+}
+
 // ═══════════════════════════════════════════════
 // ADAPTIVE LEARNING (SESSION)
 // ═══════════════════════════════════════════════
@@ -766,6 +773,149 @@ let CAL={
   power:[0,0,0,0,0,0,0,0,0,0],
   calibrado:false,
 };
+
+
+
+
+// 🚀🚀🚀 ELITE AI SYSTEM 🚀🚀🚀
+
+// 🏛️ INSTITUTIONAL LEARNING SYSTEM (APENAS DADOS DE ENTRADA)
+
+// Reset aprendizado baseado em entrada
+function resetLearn(){
+  LEARN.bonus = Array(26).fill(0);
+  LEARN.penalti = Array(26).fill(0);
+  LEARN.rodadas = 0;
+}
+
+// Aprendizado progressivo jogo a jogo
+function aprendizadoPorEntrada(jogos){
+  resetLearn();
+
+  jogos.forEach((jogo, idx)=>{
+    jogo.forEach(n=>{
+      // reforço progressivo
+      let peso = (idx + 1) / jogos.length;
+      LEARN.bonus[n] += peso * 0.2;
+    });
+
+    // leve penalização para não sorteados dentro da janela
+    for(let i=1;i<=25;i++){
+      if(!jogo.includes(i)){
+        LEARN.penalti[i] += 0.05 * (idx / jogos.length);
+      }
+    }
+
+    LEARN.rodadas++;
+  });
+}
+
+
+// Memória híbrida (curto + médio prazo)
+function usarJanelaAdaptativa(jogos){
+  if(jogos.length <= 15) return jogos;
+
+  let variacao = Math.random();
+
+  if(variacao > 0.66){
+    return jogos.slice(0,5);
+  }else if(variacao > 0.33){
+    return jogos.slice(0,10);
+  }else{
+    return jogos.slice(0,15);
+  }
+}
+
+// Peso temporal dinâmico
+function pesoRecenteElite(index, total){
+  return 1 - (index / total);
+}
+
+// Frequência ponderada elite
+function freqElite(jogos){
+  const freq = Array(26).fill(0);
+  const total = jogos.length;
+
+  jogos.forEach((jogo, idx)=>{
+    const peso = pesoRecenteElite(idx, total);
+    jogo.forEach(n=>{
+      freq[n] += peso;
+    });
+  });
+
+  return freq;
+}
+
+// Simulação interna antes de gerar
+function simularMelhorJogo(jogos, gerarFunc){
+  let melhor = null;
+  let melhorScore = -Infinity;
+
+  for(let i=0;i<5;i++){
+    const tentativa = gerarFunc(jogos);
+    let score = 0;
+
+    tentativa.numeros.forEach(n=>{
+      score += (LEARN.bonus[n] || 0) - (LEARN.penalti[n] || 0);
+    });
+
+    if(score > melhorScore){
+      melhorScore = score;
+      melhor = tentativa;
+    }
+  }
+
+  return melhor;
+}
+
+// 🚀 SISTEMA PROFISSIONAL DE APRENDIZADO CONTÍNUO
+const LEARN_PRO = {
+  decay: 0.98,        // evita overfitting
+  genWeight: 0.12,    // peso leve na geração
+  confWeight: 0.35,   // peso forte na conferência
+
+  aplicarDecay(){
+    for(let i=1;i<=25;i++){
+      LEARN.bonus[i] *= this.decay;
+      LEARN.penalti[i] *= this.decay;
+    }
+  },
+
+  aprendizadoGeracao(jogos){
+    this.aplicarDecay();
+    jogos.forEach(j=>{
+      j.numeros.forEach(n=>{
+        LEARN.bonus[n] = LEARN.bonus[n]*(1-LEARN.alpha) + this.genWeight*LEARN.alpha;
+      });
+    });
+    LEARN.rodadas++;
+  },
+
+  aprendizadoConferencia(jogos,res){
+    this.aplicarDecay();
+    jogos.forEach(j=>{
+      j.numeros.forEach(n=>{
+        if(res.includes(n)){
+          LEARN.bonus[n] = LEARN.bonus[n]*(1-LEARN.alpha) + this.confWeight*LEARN.alpha;
+        }else{
+          LEARN.penalti[n] = LEARN.penalti[n]*(1-LEARN.alpha) + 0.2*LEARN.alpha;
+        }
+      });
+    });
+    LEARN.rodadas++;
+  }
+};
+
+// 🔥 NOVO: APRENDIZADO AO GERAR JOGOS
+function aprendizadoAoGerar(jogosGerados){
+  // simula reforço leve baseado na própria distribuição gerada
+  jogosGerados.forEach(j=>{
+    j.numeros.forEach(n=>{
+      LEARN.bonus[n] = LEARN.bonus[n] * (1-LEARN.alpha) + 0.15 * LEARN.alpha;
+    });
+  });
+  LEARN.rodadas++;
+}
 
 // ═══════════════════════════════════════════════
 // OMEGA-9 ENGINE (TOTALMENTE ADAPTATIVO)
@@ -1278,7 +1428,7 @@ function renderConstancia(){
 
 function executar(hist){
   // ── PASSO 0: CALIBRAR COM OS DADOS DE ENTRADA ──
-  const calResult=CALIBRADOR.calibrar(hist);
+  const calResult=CALIBRADOR.calibrar(usarUltimosCinco(hist));
   CAL.markovProbs=calResult.markovProbs;
   CAL.filterBounds=calResult.filterBounds;
   CAL.mod5Bonus=calResult.mod5Bonus;
